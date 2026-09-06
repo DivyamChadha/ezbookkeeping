@@ -32,6 +32,8 @@ jobs:
           context: .
           platforms: linux/arm64
           push: true
+          build-args: |
+            BUILD_PIPELINE=1
           tags: |
             ghcr.io/${{ steps.vars.outputs.owner }}/ezbookkeeping:custom
             ghcr.io/${{ steps.vars.outputs.owner }}/ezbookkeeping:${{ github.sha }}
