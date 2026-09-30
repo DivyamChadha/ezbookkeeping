@@ -125,6 +125,21 @@
                     <div v-else-if="!loadingTransactionCategories">{{ transactionCategoriesIncludedInHomePageOverviewDisplayContent }}</div>
                 </template>
             </f7-list-item>
+
+            <f7-list-item
+                class="item-truncate-after-text"
+                link="/settings/filter/tag?type=homePageOverview"
+                :disabled="!hasAnyTransactionTag">
+                <template #after-title>
+                    <div class="item-actual-title">
+                        <span>{{ tt('Transaction Tags Included in Overview Statistics') }}</span>
+                    </div>
+                </template>
+                <template #after>
+                    <f7-preloader v-if="loadingTags" />
+                    <div v-else-if="!loadingTags">{{ tt(settingsStore.appSettings.overviewTransactionTagFilterInHomePage ? 'Custom' : 'All') }}</div>
+                </template>
+            </f7-list-item>
         </f7-list>
 
         <f7-block-title>{{ tt('Transaction List Page') }}</f7-block-title>
@@ -137,6 +152,35 @@
                     <f7-toggle :checked="showTotalAmountInTransactionListPage" @toggle:change="showTotalAmountInTransactionListPage = $event"></f7-toggle>
                 </template>
             </f7-list-item>
+            <f7-list-item
+                link="#"
+                class="item-truncate-after-text"
+                popover-open=".monthly-total-amount-type-popover-menu"
+            >
+                <template #after-title>
+                    {{ tt('Total Amount Calculation Method') }}
+                </template>
+                <template #after>
+                    {{ totalAmountTypeInTransactionListPage === TransactionAmountType.IncomeAndExpense ? tt('Income and Expense') : tt('Inflows and Outflows') }}
+                </template>
+                <f7-popover class="monthly-total-amount-type-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.name"
+                                      :class="{ 'list-item-selected': totalAmountTypeInTransactionListPage === option.value }"
+                                      :key="option.value"
+                                      v-for="option in [
+                                          { name: tt('Inflows and Outflows'), value: TransactionAmountType.InflowsAndOutflows },
+                                          { name: tt('Income and Expense'), value: TransactionAmountType.IncomeAndExpense }
+                                      ]"
+                                      @click="totalAmountTypeInTransactionListPage = option.value">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="totalAmountTypeInTransactionListPage === option.value"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
+            </f7-list-item>
             <f7-list-item>
                 <template #after-title>
                     {{ tt('Show Transaction Tags') }}
@@ -146,9 +190,9 @@
                 </template>
             </f7-list-item>
             <f7-list-item
-                class="item-truncate-after-text"
                 link="#"
-                @click="showKeywordMatchModeInTransactionListPagePopup = true"
+                class="item-truncate-after-text"
+                popover-open=".default-keyword-search-matching-mode-popover-menu"
             >
                 <template #after-title>
                     <div class="item-actual-title">
@@ -158,24 +202,29 @@
                 <template #after>
                     {{ findDisplayNameByType(allKeywordMatchModes, defaultKeywordMatchModeInTransactionListPage) }}
                 </template>
-                <list-item-selection-popup value-type="item"
-                                           key-field="type" value-field="type"
-                                           title-field="displayName"
-                                           :title="tt('Default Keyword Search Matching Mode')"
-                                           :enable-filter="false"
-                                           :items="allKeywordMatchModes"
-                                           v-model:show="showKeywordMatchModeInTransactionListPagePopup"
-                                           v-model="defaultKeywordMatchModeInTransactionListPage">
-                </list-item-selection-popup>
+                <f7-popover class="default-keyword-search-matching-mode-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.displayName"
+                                      :class="{ 'list-item-selected': defaultKeywordMatchModeInTransactionListPage === option.type }"
+                                      :key="option.type"
+                                      v-for="option in allKeywordMatchModes"
+                                      @click="defaultKeywordMatchModeInTransactionListPage = option.type">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="defaultKeywordMatchModeInTransactionListPage === option.type"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
             </f7-list-item>
         </f7-list>
 
         <f7-block-title>{{ tt('Transaction Edit Page') }}</f7-block-title>
         <f7-list strong inset dividers class="settings-list">
             <f7-list-item
-                class="item-truncate-after-text"
                 link="#"
-                @click="showQuickSaveButtonStyleInMobileTransactionListPagePopup = true"
+                class="item-truncate-after-text"
+                popover-open=".quick-add-button-style-popover-menu"
             >
                 <template #after-title>
                     <div class="item-actual-title">
@@ -185,24 +234,27 @@
                 <template #after>
                     {{ findDisplayNameByType(allTransactionQuickSaveButtonStyles, quickSaveButtonStyleInMobileTransactionListPage) }}
                 </template>
-                <list-item-selection-popup value-type="item"
-                                           key-field="type" value-field="type"
-                                           title-field="displayName"
-                                           :title="tt('Quick Save Button Style')"
-                                           :enable-filter="true"
-                                           :filter-placeholder="tt('Quick Save Button Style')"
-                                           :filter-no-items-text="tt('No results')"
-                                           :items="allTransactionQuickSaveButtonStyles"
-                                           v-model:show="showQuickSaveButtonStyleInMobileTransactionListPagePopup"
-                                           v-model="quickSaveButtonStyleInMobileTransactionListPage">
-                </list-item-selection-popup>
+                <f7-popover class="quick-add-button-style-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.displayName"
+                                      :class="{ 'list-item-selected': quickSaveButtonStyleInMobileTransactionListPage === option.type }"
+                                      :key="option.type"
+                                      v-for="option in allTransactionQuickSaveButtonStyles"
+                                      @click="quickSaveButtonStyleInMobileTransactionListPage = option.type">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="quickSaveButtonStyleInMobileTransactionListPage === option.type"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
             </f7-list-item>
 
             <f7-list-item
-                class="item-truncate-after-text"
                 link="#"
+                class="item-truncate-after-text"
                 :disabled="quickSaveButtonStyleInMobileTransactionListPage === TransactionQuickSaveButtonStyle.Disabled.type"
-                @click="showQuickAddButtonActionInMobileTransactionEditPagePopup = true"
+                popover-open=".quick-add-button-action-popover-menu"
             >
                 <template #after-title>
                     <div class="item-actual-title">
@@ -212,23 +264,26 @@
                 <template #after>
                     {{ findDisplayNameByType(allTransactionQuickAddButtonActionTypes, quickAddButtonActionInMobileTransactionEditPage) }}
                 </template>
-                <list-item-selection-popup value-type="item"
-                                           key-field="type" value-field="type"
-                                           title-field="displayName"
-                                           :title="tt('Quick Add Button Action')"
-                                           :enable-filter="true"
-                                           :filter-placeholder="tt('Quick Add Button Action')"
-                                           :filter-no-items-text="tt('No results')"
-                                           :items="allTransactionQuickAddButtonActionTypes"
-                                           v-model:show="showQuickAddButtonActionInMobileTransactionEditPagePopup"
-                                           v-model="quickAddButtonActionInMobileTransactionEditPage">
-                </list-item-selection-popup>
+                <f7-popover class="quick-add-button-action-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.displayName"
+                                      :class="{ 'list-item-selected': quickAddButtonActionInMobileTransactionEditPage === option.type }"
+                                      :key="option.type"
+                                      v-for="option in allTransactionQuickAddButtonActionTypes"
+                                      @click="quickAddButtonActionInMobileTransactionEditPage = option.type">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="quickAddButtonActionInMobileTransactionEditPage === option.type"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
             </f7-list-item>
 
             <f7-list-item
-                class="item-truncate-after-text"
                 link="#"
-                @click="showAutoSaveTransactionDraftPopup = true"
+                class="item-truncate-after-text"
+                popover-open=".auto-save-draft-popover-menu"
             >
                 <template #after-title>
                     <div class="item-actual-title">
@@ -238,17 +293,20 @@
                 <template #after>
                     {{ findNameByValue(allAutoSaveTransactionDraftTypes, autoSaveTransactionDraft) }}
                 </template>
-                <list-item-selection-popup value-type="item"
-                                           key-field="value" value-field="value"
-                                           title-field="name"
-                                           :title="tt('Automatically Save Draft')"
-                                           :enable-filter="true"
-                                           :filter-placeholder="tt('Automatically Save Draft')"
-                                           :filter-no-items-text="tt('No results')"
-                                           :items="allAutoSaveTransactionDraftTypes"
-                                           v-model:show="showAutoSaveTransactionDraftPopup"
-                                           v-model="autoSaveTransactionDraft">
-                </list-item-selection-popup>
+                <f7-popover class="auto-save-draft-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.name"
+                                      :class="{ 'list-item-selected': autoSaveTransactionDraft === option.value }"
+                                      :key="option.value"
+                                      v-for="option in allAutoSaveTransactionDraftTypes"
+                                      @click="autoSaveTransactionDraft = option.value">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="autoSaveTransactionDraft === option.value"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
             </f7-list-item>
 
             <f7-list-item>
@@ -337,6 +395,34 @@
                 </template>
             </f7-list-item>
             <f7-list-item
+                link="#"
+                class="item-truncate-after-text"
+                popover-open=".account-list-default-credit-card-amount-popover-menu"
+            >
+                <template #after-title>
+                    <div class="item-actual-title">
+                        <span>{{ tt('Default Credit Card Amount') }}</span>
+                    </div>
+                </template>
+                <template #after>
+                    {{ findDisplayNameByType(allCreditCardAmountDisplayTypes, defaultCreditCardAmountDisplayTypeInMobile) }}
+                </template>
+                <f7-popover class="account-list-default-credit-card-amount-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.displayName"
+                                      :class="{ 'list-item-selected': defaultCreditCardAmountDisplayTypeInMobile === option.type }"
+                                      :key="option.type"
+                                      v-for="option in allCreditCardAmountDisplayTypes"
+                                      @click="defaultCreditCardAmountDisplayTypeInMobile = option.type">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="defaultCreditCardAmountDisplayTypeInMobile === option.type"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
+            </f7-list-item>
+            <f7-list-item
                 class="item-truncate-after-text"
                 link="#"
                 @click="showReconciliationStatementDefaultDateRangePopup = true"
@@ -366,9 +452,9 @@
         <f7-block-title>{{ tt('Exchange Rates Data Page') }}</f7-block-title>
         <f7-list strong inset dividers class="settings-list">
             <f7-list-item
-                class="item-truncate-after-text"
                 link="#"
-                @click="showCurrencySortByInExchangeRatesPagePopup = true"
+                class="item-truncate-after-text"
+                popover-open=".exchange-rates-data-sort-by-popover-menu"
             >
                 <template #after-title>
                     <div class="item-actual-title">
@@ -378,17 +464,20 @@
                 <template #after>
                     {{ findDisplayNameByType(allCurrencySortingTypes, currencySortByInExchangeRatesPage) }}
                 </template>
-                <list-item-selection-popup value-type="item"
-                                           key-field="type" value-field="type"
-                                           title-field="displayName"
-                                           :title="tt('Sort by')"
-                                           :enable-filter="true"
-                                           :filter-placeholder="tt('Sort by')"
-                                           :filter-no-items-text="tt('No results')"
-                                           :items="allCurrencySortingTypes"
-                                           v-model:show="showCurrencySortByInExchangeRatesPagePopup"
-                                           v-model="currencySortByInExchangeRatesPage">
-                </list-item-selection-popup>
+                <f7-popover class="exchange-rates-data-sort-by-popover-menu">
+                    <f7-list dividers>
+                        <f7-list-item link="#" no-chevron popover-close
+                                      :title="option.displayName"
+                                      :class="{ 'list-item-selected': currencySortByInExchangeRatesPage === option.type }"
+                                      :key="option.type"
+                                      v-for="option in allCurrencySortingTypes"
+                                      @click="currencySortByInExchangeRatesPage = option.type">
+                            <template #after>
+                                <f7-icon class="list-item-checked-icon" f7="checkmark_alt" v-if="currencySortByInExchangeRatesPage === option.type"></f7-icon>
+                            </template>
+                        </f7-list-item>
+                    </f7-list>
+                </f7-popover>
             </f7-list-item>
         </f7-list>
     </f7-page>
@@ -404,10 +493,11 @@ import { useAppSettingPageBase } from '@/views/base/settings/AppSettingsPageBase
 import { useSettingsStore } from '@/stores/setting.ts';
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 
 import type { TypeAndDisplayName } from '@/core/base.ts';
 import { CategoryType } from '@/core/category.ts';
-import { TransactionQuickSaveButtonStyle } from '@/core/transaction.ts';
+import { TransactionAmountType, TransactionQuickSaveButtonStyle } from '@/core/transaction.ts';
 import { DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_MOBILE } from '@/core/statistics.ts';
 
 import { findNameByValue, findDisplayNameByType } from '@/lib/common.ts';
@@ -415,6 +505,7 @@ import { isDefaultMobileOverviewLayout, parseMobileOverviewLayout } from '@/lib/
 
 const {
     tt,
+    getAllCreditCardAmountDisplayTypes,
     getAllTransactionQuickSaveButtonStyles,
     getAllTransactionQuickAddButtonActionTypes
 } = useI18n();
@@ -422,9 +513,11 @@ const { showToast } = useI18nUIComponents();
 const {
     loadingAccounts,
     loadingTransactionCategories,
+    loadingTags,
     hasAnyAccount,
     hasAnyVisibleAccount,
     hasAnyTransactionCategory,
+    hasAnyTransactionTag,
     allTimezoneTypesUsedForStatistics,
     allCurrencySortingTypes,
     allKeywordMatchModes,
@@ -436,6 +529,7 @@ const {
     showAmountInHomePage,
     timezoneUsedForStatisticsInHomePage,
     showTotalAmountInTransactionListPage,
+    totalAmountTypeInTransactionListPage,
     showTagInTransactionListPage,
     defaultKeywordMatchModeInTransactionListPage,
     autoSaveTransactionDraft,
@@ -455,18 +549,15 @@ const {
 const settingsStore = useSettingsStore();
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
+const transactionTagsStore = useTransactionTagsStore();
 
 const showTimezoneUsedForStatisticsInHomePagePopup = ref<boolean>(false);
-const showKeywordMatchModeInTransactionListPagePopup = ref<boolean>(false);
-const showQuickSaveButtonStyleInMobileTransactionListPagePopup = ref<boolean>(false);
-const showQuickAddButtonActionInMobileTransactionEditPagePopup = ref<boolean>(false);
-const showAutoSaveTransactionDraftPopup = ref<boolean>(false);
 const showTransactionPictureQualityPopup = ref<boolean>(false);
 const showReconciliationStatementDefaultDateRangePopup = ref<boolean>(false);
-const showCurrencySortByInExchangeRatesPagePopup = ref<boolean>(false);
 
 const allTransactionQuickSaveButtonStyles = computed<TypeAndDisplayName[]>(() => getAllTransactionQuickSaveButtonStyles());
 const allTransactionQuickAddButtonActionTypes = computed<TypeAndDisplayName[]>(() => getAllTransactionQuickAddButtonActionTypes());
+const allCreditCardAmountDisplayTypes = computed<TypeAndDisplayName[]>(() => getAllCreditCardAmountDisplayTypes());
 
 const overviewPageLayoutDisplayContent = computed<string>(() => {
     try {
@@ -491,6 +582,11 @@ const alwaysShowTransactionPicturesInMobileTransactionEditPage = computed<boolea
     set: (value) => settingsStore.setAlwaysShowTransactionPicturesInMobileTransactionEditPage(value)
 });
 
+const defaultCreditCardAmountDisplayTypeInMobile = computed<number>({
+    get: () => settingsStore.appSettings.defaultCreditCardAmountDisplayTypeInMobile,
+    set: (value: number) => settingsStore.setDefaultCreditCardAmountDisplayTypeInMobile(value)
+});
+
 const reconciliationStatementPageDefaultDateRangeTypeInMobile = computed<number>({
     get: () => getValidReconciliationStatementPageDefaultDateRangeType(settingsStore.appSettings.reconciliationStatementPageDefaultDateRangeTypeInMobile, DEFAULT_RECONCILIATION_STATEMENT_DATE_RANGE_IN_MOBILE.type),
     set: (value: number) => settingsStore.setReconciliationStatementPageDefaultDateRangeTypeInMobile(value)
@@ -499,6 +595,7 @@ const reconciliationStatementPageDefaultDateRangeTypeInMobile = computed<number>
 function init(): void {
     loadingAccounts.value = true;
     loadingTransactionCategories.value = true;
+    loadingTags.value = true;
 
     accountsStore.loadAllAccounts({
         force: false
@@ -518,6 +615,18 @@ function init(): void {
         loadingTransactionCategories.value = false;
     }).catch(error => {
         loadingTransactionCategories.value = false;
+
+        if (!error.processed) {
+            showToast(error.message || error);
+        }
+    });
+
+    transactionTagsStore.loadAllTags({
+        force: false
+    }).then(() => {
+        loadingTags.value = false;
+    }).catch(error => {
+        loadingTags.value = false;
 
         if (!error.processed) {
             showToast(error.message || error);

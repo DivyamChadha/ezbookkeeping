@@ -11,10 +11,10 @@
                         <v-icon :icon="mdiContentCopy" size="20" />
                         <v-tooltip activator="parent">{{ tt('Copy') }}</v-tooltip>
                     </v-btn>
-                    <v-btn density="compact" color="default" variant="text" class="ms-1" :aria-label="tt('Save')" :icon="true"
+                    <v-btn density="compact" color="default" variant="text" class="ms-1" :aria-label="tt('Save to File')" :icon="true"
                            @click="save()">
                         <v-icon :icon="mdiContentSaveOutline" size="22" />
-                        <v-tooltip activator="parent">{{ tt('Save') }}</v-tooltip>
+                        <v-tooltip activator="parent">{{ tt('Save to File') }}</v-tooltip>
                     </v-btn>
                 </div>
             </template>
@@ -29,6 +29,7 @@
                         <v-list>
                             <v-list-subheader class="text-body-small" :title="tt('File Format')"/>
                             <v-list-item :prepend-icon="mdiComma"
+                                         :disabled="useCommaDecimalSeparator"
                                          :append-icon="fileFormat === KnownFileType.CSV.extension ? mdiCheck : undefined"
                                          :title="tt('CSV (Comma-separated values) File')"
                                          @click="fileFormat = KnownFileType.CSV.extension"></v-list-item>
@@ -78,6 +79,7 @@
                         :hide-default-footer="true"
                         :items-per-page="dataTableItems.length"
                         :no-data-text="tt('No data')"
+                        @click="focusTableScrollContainer"
                         v-if="!showRawData"
                     ></v-data-table>
                     <div class="w-100 h-100 code-container" v-if="showRawData">
@@ -104,13 +106,14 @@ import { useI18n } from '@/locales/helpers.ts';
 import { useUserStore } from '@/stores/user.ts';
 
 import { type PartialRecord, itemAndIndex } from '@/core/base.ts';
-import type { BigDecimal } from '@/core/numeral.ts';
+import { type BigDecimal, DecimalSeparator } from '@/core/numeral.ts';
 import { KnownFileType } from '@/core/file.ts';
 import { ExportMermaidChartType } from '@/core/statistics.ts';
 
 import { replaceAll, arrayItemToObjectField } from '@/lib/common.ts';
 import { BIG_DECIMAL_ZERO, parseBigDecimal } from '@/lib/numeral.ts';
 import { copyTextToClipboard, startDownloadFile } from '@/lib/ui/common.ts';
+import { focusTableScrollContainer } from '@/lib/ui/desktop.ts';
 import logger from '@/lib/logger.ts';
 
 import {
@@ -129,7 +132,7 @@ import {
 
 type SnackBarType = InstanceType<typeof SnackBar>;
 
-const { tt } = useI18n();
+const { tt, getCurrentDecimalSeparator } = useI18n();
 
 const userStore = useUserStore();
 
@@ -143,6 +146,8 @@ const fileFormat = ref<string>(KnownFileType.CSV.extension);
 const supportedMermaidChartTypes = ref<PartialRecord<ExportMermaidChartType, boolean>>({});
 const mermaidChartType = ref<ExportMermaidChartType | undefined>(undefined);
 const showRawData = ref<boolean>(false);
+
+const useCommaDecimalSeparator = computed<boolean>(() => getCurrentDecimalSeparator() === DecimalSeparator.Comma.symbol);
 
 const fileName = computed<string>(() => {
     const nickname = userStore.currentUserNickname;
@@ -289,7 +294,7 @@ const exportedData = computed<string>(() => {
 function open(options: { headers: string[], data: string[][], supportedMermaidCharts?: ExportMermaidChartType[] }): void {
     headers.value = options.headers || [];
     data.value = options.data || [];
-    fileFormat.value = KnownFileType.CSV.extension;
+    fileFormat.value = useCommaDecimalSeparator.value ? KnownFileType.SSV.extension : KnownFileType.CSV.extension;
     supportedMermaidChartTypes.value = arrayItemToObjectField(options.supportedMermaidCharts || [], true);
     mermaidChartType.value = undefined;
     showRawData.value = false;

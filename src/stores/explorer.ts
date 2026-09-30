@@ -29,7 +29,8 @@ import { type TransactionCategory } from '@/models/transaction_category.ts';
 import { type TransactionTag } from '@/models/transaction_tag.ts';
 import {
     type TransactionInfoResponse,
-    type TransactionInsightDataItem
+    type TransactionInsightDataItem,
+    type TransactionInsightDataItemWithQueryIndexes
 } from '@/models/transaction.ts';
 import {
     type InsightsExplorerNewDisplayOrderRequest,
@@ -38,6 +39,10 @@ import {
     InsightsExplorer,
     InsightsExplorerBasicInfo
 } from '@/models/explorer.ts';
+import {
+    type CodingAssistantResponse,
+    CodingAssistantType
+} from '@/models/large_language_model.ts';
 
 import {
     isDefined,
@@ -1047,6 +1052,41 @@ export const useExplorersStore = defineStore('explorers', () => {
         return result;
     });
 
+    const filteredTransactionsForCustomChart = computed<TransactionInsightDataItemWithQueryIndexes[]>(() => {
+        if (!allTransactions.value || allTransactions.value.length < 1) {
+            return [];
+        }
+
+        if (!currentExploration.value.queries || currentExploration.value.queries.length < 1) {
+            return allTransactions.value.map(transaction => ({
+                ...transaction,
+                queryIndexes: []
+            }));
+        }
+
+        const result: TransactionInsightDataItemWithQueryIndexes[] = [];
+
+        for (const transaction of allTransactions.value) {
+            const matchOptions: InsightsExplorerMatchContext = buildInsightsExplorerMatchContext(currentExploration.value, transaction);
+            const queryIndexes: number[] = [];
+
+            for (const [query, index] of itemAndIndex(currentExploration.value.queries)) {
+                if (query.match(transaction, matchOptions)) {
+                    queryIndexes.push(index);
+                }
+            }
+
+            if (queryIndexes.length > 0) {
+                result.push({
+                    ...transaction,
+                    queryIndexes: queryIndexes
+                });
+            }
+        }
+
+        return result;
+    });
+
     const filteredTransactionsInDataTableStatistic = computed<InsightsExplorerTransactionStatisticData>(() => {
         const defaultCurrency = userStore.currentUserDefaultCurrency;
         const statisticData: InsightsExplorerTransactionStatisticData = {
@@ -1218,7 +1258,9 @@ export const useExplorersStore = defineStore('explorers', () => {
         const categoriedDataMap = categoriedTransactions.value;
         let needCalculateDailyTransactionCount: boolean = false;
 
-        if (valueMetric === TransactionExplorerValueMetric.ActiveTransactionDays || valueMetric === TransactionExplorerValueMetric.TransactionsPerDay) {
+        if (valueMetric === TransactionExplorerValueMetric.ActiveTransactionDays
+            || valueMetric === TransactionExplorerValueMetric.TransactionsPerDay
+            || valueMetric === TransactionExplorerValueMetric.AverageAmountPerActiveDay) {
             needCalculateDailyTransactionCount = true;
         }
 
@@ -1310,6 +1352,9 @@ export const useExplorersStore = defineStore('explorers', () => {
                 } else if (valueMetric === TransactionExplorerValueMetric.TransactionsPerDay) {
                     const activeDays = getObjectOwnFieldCount(transactionDateMapCount);
                     value = activeDays > 0 ? parseBigDecimal(allSourceAmountsInDefaultCurrency.length).divide(activeDays) : BIG_DECIMAL_ZERO;
+                } else if (valueMetric === TransactionExplorerValueMetric.AverageAmountPerActiveDay) {
+                    const activeDays = getObjectOwnFieldCount(transactionDateMapCount);
+                    value = activeDays > 0 ? totalSourceAmountSumInDefaultCurrency.divide(activeDays).truncate() : BIG_DECIMAL_ZERO;
                 } else if (valueMetric === TransactionExplorerValueMetric.SourceIncomeAmountSum) {
                     value = totalSourceIncomeAmountSumInDefaultCurrency;
                 } else if (valueMetric === TransactionExplorerValueMetric.SourceExpenseAmountSum) {
@@ -1925,6 +1970,43 @@ export const useExplorersStore = defineStore('explorers', () => {
         });
     }
 
+    function generateCustomChartCode({ userPrompt, currentCode, cancelableUuid }: { userPrompt: string, currentCode: string, cancelableUuid?: string }): Promise<CodingAssistantResponse> {
+        return new Promise((resolve, reject) => {
+            services.generateCode({
+                type: CodingAssistantType.InsightsExplorerCustomChart,
+                userPrompt: userPrompt,
+                code: currentCode
+            }, cancelableUuid).then(response => {
+                const data = response.data;
+
+                if (!data || !data.success || !data.result) {
+                    reject({ message: 'Unable to generate code' });
+                    return;
+                }
+
+                resolve(data.result);
+            }).catch(error => {
+                if (error.canceled) {
+                    reject(error);
+                }
+
+                logger.error('failed to generate code', error);
+
+                if (error.response && error.response.data && error.response.data.errorMessage) {
+                    reject({ error: error.response.data });
+                } else if (!error.processed) {
+                    reject({ message: 'Unable to generate code' });
+                } else {
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    function cancelGenerateCustomChartCode(cancelableUuid: string): void {
+        services.cancelRequest(cancelableUuid);
+    }
+
     return {
         // states
         transactionExplorerFilter,
@@ -1936,6 +2018,7 @@ export const useExplorersStore = defineStore('explorers', () => {
         // computed
         isUsingAmountRange,
         filteredTransactionsInDataTable,
+        filteredTransactionsForCustomChart,
         filteredTransactionsInDataTableStatistic,
         categoriedTransactionExplorerData,
         categoriedTransactions,
@@ -1954,6 +2037,8 @@ export const useExplorersStore = defineStore('explorers', () => {
         changeExplorationDisplayOrder,
         updateExplorationDisplayOrders,
         hideExploration,
-        deleteExploration
+        deleteExploration,
+        generateCustomChartCode,
+        cancelGenerateCustomChartCode
     };
 });

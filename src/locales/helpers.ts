@@ -109,6 +109,8 @@ import {
 } from '@/core/fiscalyear.ts';
 
 import {
+    type Coordinate,
+    type CoordinateFormatOptions,
     CoordinateDisplayType
 } from '@/core/coordinate.ts';
 
@@ -131,7 +133,8 @@ import {
 import {
     type LocalizedAccountCategory,
     AccountType,
-    AccountCategory
+    AccountCategory,
+    CreditCardAmountDisplayType
 } from '@/core/account.ts';
 
 import {
@@ -153,6 +156,10 @@ import {
 } from '@/core/import_transaction.ts';
 
 import {
+    ImportTransactionReplaceRuleConditionField
+} from '@/core/rule.ts';
+
+import {
     ScheduledTemplateFrequencyType
 } from '@/core/template.ts';
 
@@ -171,7 +178,8 @@ import {
     TransactionExplorerConditionOperator,
     TransactionExplorerDataDimension,
     TransactionExplorerValueMetric,
-    TransactionExplorerChartType
+    TransactionExplorerChartType,
+    TransactionExplorerCustomChartDisplayLayout
 } from '@/core/explorer.ts';
 
 import {
@@ -187,7 +195,7 @@ import type { ErrorResponse } from '@/core/api.ts';
 
 import { AMOUNT_FACTOR, DISPLAY_HIDDEN_AMOUNT, INCOMPLETE_AMOUNT_SUFFIX } from '@/consts/numeral.ts';
 import { UTC_TIMEZONE, ALL_TIMEZONES } from '@/consts/timezone.ts';
-import { ALL_CURRENCIES } from '@/consts/currency.ts';
+import { ALL_CURRENCIES, ACCOUNT_CURRENCY_NOT_SET_VALUE } from '@/consts/currency.ts';
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES, DEFAULT_TRANSFER_CATEGORIES } from '@/consts/category.ts';
 import { KnownErrorCode, SPECIFIED_API_NOT_FOUND_ERRORS, PARAMETERIZED_ERRORS } from '@/consts/api.ts';
 import { OAUTH2_PROVIDER_DISPLAY_NAME } from '@/consts/oauth2.ts';
@@ -263,6 +271,10 @@ import {
     appendCurrencySymbol,
     getAmountPrependAndAppendCurrencySymbol
 } from '@/lib/currency.ts';
+
+import {
+    formatCoordinate
+} from '@/lib/coordinate.ts';
 
 import {
     getCategorizedAccountsMap,
@@ -1066,7 +1078,7 @@ export function useI18n() {
         }];
     }
 
-    function getAllCurrencies(): LocalizedCurrencyInfo[] {
+    function getAllCurrencies(withNotSet?: boolean): LocalizedCurrencyInfo[] {
         const allCurrencies: LocalizedCurrencyInfo[] = [];
 
         for (const currencyCode of keys(ALL_CURRENCIES)) {
@@ -1081,6 +1093,13 @@ export function useI18n() {
         allCurrencies.sort(function (c1, c2) {
             return c1.displayName.localeCompare(c2.displayName);
         })
+
+        if (withNotSet) {
+            allCurrencies.splice(0, 0, {
+                currencyCode: ACCOUNT_CURRENCY_NOT_SET_VALUE,
+                displayName: t('Not set')
+            });
+        }
 
         return allCurrencies;
     }
@@ -1961,6 +1980,10 @@ export function useI18n() {
             return '';
         }
 
+        if (currencyCode === ACCOUNT_CURRENCY_NOT_SET_VALUE) {
+            return t('Not set');
+        }
+
         return t(`currency.name.${currencyCode}`);
     }
 
@@ -2457,6 +2480,24 @@ export function useI18n() {
         return pageOptions;
     }
 
+    function getFormattedCoordinate(value: Coordinate, coordinateDisplayType?: CoordinateDisplayType): string {
+        if (!coordinateDisplayType) {
+            coordinateDisplayType = CoordinateDisplayType.valueOf(userStore.currentUserCoordinateDisplayType) ?? CoordinateDisplayType.Default;
+        }
+
+        const numberFormatOptions = getNumberFormatOptions({
+            digitGrouping: DigitGroupingType.None,
+            numeralSystem: NumeralSystem.WesternArabicNumerals
+        });
+
+        const options: CoordinateFormatOptions = {
+            coordinateDisplayType: coordinateDisplayType,
+            numberFormatOptions: numberFormatOptions
+        };
+
+        return formatCoordinate(value, options);
+    }
+
     function getLocalizedFileEncodingName(encoding: string): string {
         return t(`encoding.${encoding}`);
     }
@@ -2669,6 +2710,7 @@ export function useI18n() {
         getAllIncomeAmountColors: () => getAllExpenseIncomeAmountColors(CategoryType.Income),
         getAllAccountCategories,
         getAllAccountTypes: () => getLocalizedDisplayNameAndType(AccountType.values()),
+        getAllCreditCardAmountDisplayTypes: () => getLocalizedDisplayNameAndType(CreditCardAmountDisplayType.values()),
         getAllCategoricalChartTypes: (withDesktopOnlyChart?: boolean) => getLocalizedDisplayNameAndType(CategoricalChartType.values(!!withDesktopOnlyChart)),
         getAllTrendChartTypes: () => getLocalizedDisplayNameAndType(TrendChartType.values()),
         getAllAccountBalanceTrendChartTypes: () => getLocalizedDisplayNameAndType(AccountBalanceTrendChartType.values()),
@@ -2681,6 +2723,7 @@ export function useI18n() {
         getAllTransactionQuickAddButtonActionTypes: () => getLocalizedDisplayNameAndType(TransactionQuickAddButtonActionType.values()),
         getAllTransactionScheduledFrequencyTypes: () => getLocalizedDisplayNameAndType(ScheduledTemplateFrequencyType.values()),
         getAllImportTransactionColumnTypes: () => getLocalizedDisplayNameAndType(ImportTransactionColumnType.values()),
+        getAllImportTransactionReplaceRuleConditionFields: () => getLocalizedNameValue(ImportTransactionReplaceRuleConditionField.values()),
         getAllTransactionDefaultCategories,
         getAllDisplayExchangeRates,
         getAllSupportedImportFileCagtegoryAndTypes,
@@ -2689,6 +2732,7 @@ export function useI18n() {
         getAllTransactionExplorerDataDimensions: (operators?: TransactionExplorerDataDimension[]) => getLocalizedNameValue(operators ?? TransactionExplorerDataDimension.values()),
         getAllTransactionExplorerValueMetrics: (operators?: TransactionExplorerValueMetric[]) => getLocalizedNameValue(operators ?? TransactionExplorerValueMetric.values()),
         getAllTransactionExplorerChartTypes: (operators?: TransactionExplorerChartType[]) => getLocalizedNameValue(operators ?? TransactionExplorerChartType.values()),
+        getAllTransactionExplorerCustomChartDisplayLayouts: () => getLocalizedDisplayNameAndType(TransactionExplorerCustomChartDisplayLayout.values()),
         // get localized info
         getLanguageInfo,
         getEnableDisableOption: (value: boolean) => t(value ? 'Enabled' : 'Disabled'),
@@ -2781,6 +2825,7 @@ export function useI18n() {
         formatBigDecimalToWesternArabicNumeralsWithoutDigitGrouping: (value: BigDecimal, precision?: number) => getFormattedBigDecimal(value, NumeralSystem.WesternArabicNumerals, DigitGroupingType.None, precision),
         formatNumberToLocalizedNumerals: (value: number, precision?: number) => getFormattedNumber(value, undefined, undefined, precision),
         formatNumberToLocalizedNumeralsWithoutDigitGrouping: (value: number, precision?: number) => getFormattedNumber(value, undefined, DigitGroupingType.None, precision),
+        formatNumberToWesternArabicNumeralsWithoutDigitGrouping: (value: number, precision?: number) => getFormattedNumber(value, NumeralSystem.WesternArabicNumerals, DigitGroupingType.None, precision),
         formatPercentToLocalizedNumerals: (value: number, precision: number, lowPrecisionValue: string) => getFormattedPercentValue(value, precision, lowPrecisionValue),
         formatPercentToWesternArabicNumerals: (value: number, precision: number, lowPrecisionValue: string) => getFormattedPercentValue(value, precision, lowPrecisionValue, NumeralSystem.WesternArabicNumerals),
         formatChartValueToLocalizedNumerals: getFormattedChartValue,
@@ -2792,6 +2837,7 @@ export function useI18n() {
         getCategorizedAccountsWithDisplayBalance,
         getTablePageOptions,
         // other format functions
+        formatCoordinate: (value: Coordinate) => getFormattedCoordinate(value),
         getLocalizedFileEncodingName,
         getLocalizedOAuth2ProviderName,
         getLocalizedOAuth2LoginText,

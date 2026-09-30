@@ -968,6 +968,8 @@ export interface TransactionCategoricalAnalysisData {
 
 export interface TransactionCategoricalAnalysisDataItem extends Record<string, unknown>, TransactionStatisticDataItemBase {
     readonly percent: number;
+    readonly originalValue?: BigDecimal;
+    readonly originalCurrency?: string;
 }
 
 export interface TransactionTrendsAnalysisData {
@@ -1020,6 +1022,10 @@ export interface TransactionInsightDataItem extends TransactionInfoResponse {
     readonly geoLocation?: TransactionGeoLocationResponse;
 }
 
+export interface TransactionInsightDataItemWithQueryIndexes extends TransactionInsightDataItem {
+    readonly queryIndexes: number[];
+}
+
 export type TransactionAmountsResponse = PartialRecord<TransactionAmountsRequestType, TransactionAmountsResponseItem>;
 
 export interface TransactionAmountsResponseItem {
@@ -1040,6 +1046,7 @@ export interface TransactionDailyAmountsRequest {
     readonly useTransactionTimezone: boolean;
     readonly excludeAccountIds: string[];
     readonly excludeCategoryIds: string[];
+    readonly tagFilter: string;
 }
 
 export interface TransactionDailyAmountsResponseItem {

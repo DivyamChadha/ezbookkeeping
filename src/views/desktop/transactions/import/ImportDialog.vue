@@ -27,6 +27,13 @@
                     <v-icon :icon="mdiRefresh" size="22" />
                     <v-tooltip activator="parent">{{ tt('Refresh Accounts, Categories and Tags') }}</v-tooltip>
                 </v-btn>
+
+                <v-btn class="ms-2" density="comfortable" color="primary" variant="outlined"
+                       :disabled="loading || submitting || importTransactionCheckDataTab?.isEditing"
+                       @click="batchApplyRules"
+                       v-if="currentStep === 'checkData'">
+                    {{ tt('Batch Apply Rules') }}
+                </v-btn>
             </template>
 
             <template #toolbar>
@@ -81,7 +88,7 @@
                     </v-menu>
                 </v-btn>
                 <v-btn density="compact" color="default" variant="text" class="ms-2"
-                       :aria-label="tt('Filter')" :icon="true" :disabled="loading || submitting"
+                       :aria-label="tt('Filter')" :icon="true" :disabled="loading || submitting || importTransactionCheckDataTab?.isEditing"
                        v-if="currentStep === 'checkData' && importTransactionCheckDataTab?.filterMenus">
                     <v-icon :icon="mdiFilterOutline" />
                     <v-menu activator="parent" max-height="500">
@@ -223,6 +230,7 @@
                                 <v-col cols="12" md="12" v-if="supportedAIAdditionalPrompt">
                                     <v-textarea
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         rows="2"
                                         :disabled="submitting"
@@ -248,6 +256,7 @@
                                 <v-col cols="12" md="12" v-if="isImportDataFromTextbox">
                                     <v-textarea
                                         type="text"
+                                        autocomplete="off"
                                         persistent-placeholder
                                         rows="5"
                                         :disabled="submitting"
@@ -287,6 +296,7 @@
                         <import-transaction-define-column-tab
                             ref="importTransactionDefineColumnTab"
                             :parsed-file-data="parsedFileData"
+                            :parsed-file-column-separator="parsedFileColumnSeparator"
                             :disabled="loading || submitting"
                         />
                     </v-window-item>
@@ -478,6 +488,7 @@ const importAdditionalOptions = ref<ImportFileTypeSupportedAdditionalOptions>({}
 const importAIAdditionalPrompt = ref<string>('');
 const importImageCancelRecognizingUuid = ref<string | undefined>(undefined);
 const parsedFileData = ref<string[][] | undefined>(undefined);
+const parsedFileColumnSeparator = ref<string | undefined>(undefined);
 const importTransactions = ref<ImportTransaction[] | undefined>(undefined);
 
 const importedCount = ref<number | null>(null);
@@ -693,6 +704,7 @@ function open(): Promise<void> {
     importAdditionalOptions.value = Object.assign({}, supportedAdditionalOptions.value ?? {});
     importAIAdditionalPrompt.value = '';
     parsedFileData.value = undefined;
+    parsedFileColumnSeparator.value = undefined;
     importTransactionDefineColumnTab.value?.reset();
     importTransactionExecuteCustomScriptTab.value?.reset();
     importTransactions.value = undefined;
@@ -1047,6 +1059,15 @@ function parseData(): void {
 
     if (isCustomFileFormat.value && currentStep.value === 'uploadFile') {
         submitting.value = true;
+        let columnSeparator: string | undefined = undefined;
+
+        if (type === 'custom_csv') {
+            columnSeparator = ',';
+        } else if (type === 'custom_tsv') {
+            columnSeparator = '\t';
+        } else if (type === 'custom_ssv') {
+            columnSeparator = ';';
+        }
 
         transactionsStore.parseImportCustomFile({
             fileType: type,
@@ -1057,14 +1078,17 @@ function parseData(): void {
                 if (processCustomFileFormatMethod.value === ImportCustomFileFormatProcessMethod.CustomScript) {
                     importTransactionExecuteCustomScriptTab.value?.reset();
                     parsedFileData.value = response;
+                    parsedFileColumnSeparator.value = columnSeparator;
                     currentStep.value = 'executeCustomScript';
                 } else {
                     importTransactionDefineColumnTab.value?.reset();
                     parsedFileData.value = response;
+                    parsedFileColumnSeparator.value = columnSeparator;
                     currentStep.value = 'defineColumn';
                 }
             } else {
                 parsedFileData.value = undefined;
+                parsedFileColumnSeparator.value = undefined;
                 snackbar.value?.showError('No data to import');
             }
 
@@ -1164,6 +1188,14 @@ function parseData(): void {
             }
         });
     }
+}
+
+function batchApplyRules(): void {
+    if (importTransactionCheckDataTab.value?.isEditing) {
+        return;
+    }
+
+    importTransactionCheckDataTab.value?.showBatchApplyRulesDialog();
 }
 
 function submit(): void {
@@ -1292,6 +1324,7 @@ watch(fileType, (newValue) => {
 
     importFile.value = null;
     parsedFileData.value = undefined;
+    parsedFileColumnSeparator.value = undefined;
     importAdditionalOptions.value = Object.assign({}, supportedAdditionalOptions.value ?? {});
     importTransactions.value = undefined;
     clearImportImageFiles();

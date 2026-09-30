@@ -65,6 +65,7 @@ const (
 // Object Storage types
 const (
 	LocalFileSystemObjectStorageType string = "local_filesystem"
+	S3StorageType                    string = "s3"
 	MinIOStorageType                 string = "minio"
 	WebDAVStorageType                string = "webdav"
 )
@@ -237,6 +238,20 @@ type SMTPConfig struct {
 	FromAddress       string
 }
 
+// S3Config represents the S3-compatible object storage setting config
+type S3Config struct {
+	Endpoint        string
+	Region          string
+	AccessKeyID     string
+	SecretAccessKey string
+	SessionToken    string
+	UseSSL          bool
+	SkipTLSVerify   bool
+	UsePathStyle    bool
+	Bucket          string
+	RootPath        string
+}
+
 // MinIOConfig represents the MinIO setting config
 type MinIOConfig struct {
 	Endpoint        string
@@ -355,12 +370,14 @@ type Config struct {
 	// Storage
 	StorageType         string
 	LocalFileSystemPath string
+	S3Config            *S3Config
 	MinIOConfig         *MinIOConfig
 	WebDAVConfig        *WebDAVConfig
 
 	// Large Language Model
 	TransactionFromAITextRecognition  bool
 	TransactionFromAIImageRecognition bool
+	InsightsExplorerCodingAssistant   bool
 	MaxAIRecognitionPictureFileSize   uint32
 
 	// Large Language Model for Transaction Text Recognition
@@ -368,6 +385,9 @@ type Config struct {
 
 	// Large Language Model for Receipt Image Recognition
 	ReceiptImageRecognitionLLMConfig *LLMConfig
+
+	// Large Language Model for coding assistant
+	CodingAssistantLLMConfig *LLMConfig
 
 	// Uuid
 	UuidGeneratorType string
@@ -540,7 +560,7 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 		return nil, err
 	}
 
-	err = loadLLMGlobalConfiguration(config, cfgFile, "llm")
+	err = loadAIConfiguration(config, cfgFile, "ai")
 
 	if err != nil {
 		return nil, err
@@ -553,6 +573,12 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 	}
 
 	config.ReceiptImageRecognitionLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_image_recognition")
+
+	if err != nil {
+		return nil, err
+	}
+
+	config.CodingAssistantLLMConfig, err = loadLLMConfiguration(cfgFile, "llm_coding_assistant")
 
 	if err != nil {
 		return nil, err
@@ -840,6 +866,8 @@ func loadLogConfiguration(config *Config, configFile *ini.File, sectionName stri
 func loadStorageConfiguration(config *Config, configFile *ini.File, sectionName string) error {
 	if getConfigItemStringValue(configFile, sectionName, "type") == LocalFileSystemObjectStorageType {
 		config.StorageType = LocalFileSystemObjectStorageType
+	} else if getConfigItemStringValue(configFile, sectionName, "type") == S3StorageType {
+		config.StorageType = S3StorageType
 	} else if getConfigItemStringValue(configFile, sectionName, "type") == MinIOStorageType {
 		config.StorageType = MinIOStorageType
 	} else if getConfigItemStringValue(configFile, sectionName, "type") == WebDAVStorageType {
@@ -855,6 +883,19 @@ func loadStorageConfiguration(config *Config, configFile *ini.File, sectionName 
 	if config.StorageType == LocalFileSystemObjectStorageType && err != nil {
 		return errs.ErrInvalidLocalFileSystemStoragePath
 	}
+
+	s3Config := &S3Config{}
+	s3Config.Endpoint = getConfigItemStringValue(configFile, sectionName, "s3_endpoint")
+	s3Config.Region = getConfigItemStringValue(configFile, sectionName, "s3_region")
+	s3Config.AccessKeyID = getConfigItemStringValue(configFile, sectionName, "s3_access_key_id")
+	s3Config.SecretAccessKey = getConfigItemStringValue(configFile, sectionName, "s3_secret_access_key")
+	s3Config.SessionToken = getConfigItemStringValue(configFile, sectionName, "s3_session_token")
+	s3Config.UseSSL = getConfigItemBoolValue(configFile, sectionName, "s3_use_ssl", false)
+	s3Config.SkipTLSVerify = getConfigItemBoolValue(configFile, sectionName, "s3_skip_tls_verify", false)
+	s3Config.UsePathStyle = getConfigItemBoolValue(configFile, sectionName, "s3_use_path_style", false)
+	s3Config.Bucket = getConfigItemStringValue(configFile, sectionName, "s3_bucket")
+	s3Config.RootPath = getConfigItemStringValue(configFile, sectionName, "s3_root_path")
+	config.S3Config = s3Config
 
 	minIOConfig := &MinIOConfig{}
 	minIOConfig.Endpoint = getConfigItemStringValue(configFile, sectionName, "minio_endpoint")
@@ -880,9 +921,10 @@ func loadStorageConfiguration(config *Config, configFile *ini.File, sectionName 
 	return nil
 }
 
-func loadLLMGlobalConfiguration(config *Config, configFile *ini.File, sectionName string) error {
+func loadAIConfiguration(config *Config, configFile *ini.File, sectionName string) error {
 	config.TransactionFromAITextRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_text_recognition", false)
 	config.TransactionFromAIImageRecognition = getConfigItemBoolValue(configFile, sectionName, "transaction_from_ai_image_recognition", false)
+	config.InsightsExplorerCodingAssistant = getConfigItemBoolValue(configFile, sectionName, "insights_explorer_coding_assistant", false)
 	config.MaxAIRecognitionPictureFileSize = getConfigItemUint32Value(configFile, sectionName, "max_ai_recognition_picture_size", defaultAIRecognitionPictureMaxSize)
 
 	return nil
