@@ -429,6 +429,9 @@
                     <v-progress-circular indeterminate size="22" class="ms-2" v-if="submitting"></v-progress-circular>
                 </v-btn>
                 <v-spacer/>
+                <split-actions-button :transaction="transaction as Transaction" :disabled="loading || submitting || recognizing"
+                                      v-if="type === TransactionEditPageType.Transaction && mode === TransactionEditPageMode.View && originalTransactionEditable"
+                                      @done="onSplitDone" />
                 <v-tooltip :disabled="!inputIsEmpty" :text="inputEmptyProblemMessage ? tt(inputEmptyProblemMessage) : ''">
                     <template v-slot:activator="{ props }">
                         <div v-bind="props" class="d-inline-block">
@@ -508,6 +511,7 @@
 import MapView from '@/components/common/MapView.vue';
 import ConfirmDialog from '@/components/desktop/ConfirmDialog.vue';
 import SnackBar from '@/components/desktop/SnackBar.vue';
+import SplitActionsButton from './SplitActionsButton.vue';
 
 import { ref, computed, useTemplateRef, watch, nextTick } from 'vue';
 
@@ -1105,6 +1109,16 @@ function remove(): void {
             }
         });
     });
+}
+
+function onSplitDone(message: string): void {
+    if (resolveFunc) {
+        resolveFunc({
+            message: message
+        });
+    }
+
+    showState.value = false;
 }
 
 function cancel(): void {

@@ -478,6 +478,9 @@
                 <f7-actions-button @click="duplicate(false, true)" v-if="transaction.geoLocation">{{ tt('Duplicate (With Geographic Location)') }}</f7-actions-button>
                 <f7-actions-button @click="duplicate(true, true)" v-if="transaction.geoLocation">{{ tt('Duplicate (With Time and Geographic Location)') }}</f7-actions-button>
             </f7-actions-group>
+            <f7-actions-group v-if="pageTypeAndMode?.type === TransactionEditPageType.Transaction && mode === TransactionEditPageMode.View && transaction instanceof Transaction && transaction.editable && splitActions.length">
+                <f7-actions-button :key="item.action" v-for="item in splitActions" @click="openSplitPopup(item.action)">{{ tt(item.name) }}</f7-actions-button>
+            </f7-actions-group>
             <f7-actions-group>
                 <f7-actions-button bold close>{{ tt('Cancel') }}</f7-actions-button>
             </f7-actions-group>
@@ -516,10 +519,14 @@
                           :navbar-show-count="true" :exposition="false"
                           :photos="transactionPictures" :thumbs="transactionThumbs" />
         <input ref="pictureInput" type="file" style="display: none" :accept="`${SUPPORTED_IMAGE_EXTENSIONS};capture=camera`" @change="onUploadPicture($event)" />
+        <split-popup :current-transaction="transaction instanceof Transaction ? transaction : null" :split-action="splitAction"
+                     v-model:show="showSplitPopup" @done="onSplitDone" />
     </f7-page>
 </template>
 
 <script setup lang="ts">
+import SplitPopup from './split/SplitPopup.vue';
+
 import { ref, computed, useTemplateRef } from 'vue';
 import type { PhotoBrowser, Router } from 'framework7/types';
 
@@ -532,6 +539,7 @@ import {
     AfterSaveAction,
     useTransactionEditPageBase
 } from '@/views/base/transactions/TransactionEditPageBase.ts';
+import { type TransactionSplitActionInfo, getAvailableTransactionSplitActions } from '@/views/base/transactions/TransactionSplitDialogBase.ts';
 
 import { useSettingsStore } from '@/stores/setting.ts';
 import { useUserStore } from '@/stores/user.ts';
@@ -569,6 +577,7 @@ import {
 import { generateRandomUUID } from '@/lib/misc.ts';
 import { getTransactionPrimaryCategoryName, getTransactionSecondaryCategoryName } from '@/lib/category.ts';
 import { type SetTransactionOptions } from '@/lib/transaction.ts';
+import { TransactionSplitAction } from '@/lib/transaction_split.ts';
 import {
     isTransactionFromAITextRecognitionEnabled,
     isTransactionPicturesEnabled,
@@ -677,6 +686,8 @@ const showQuickSavePopover = ref<boolean>(false);
 const showTimezonePopup = ref<boolean>(false);
 const showGeoLocationActionSheet = ref<boolean>(false);
 const showMoreActionSheet = ref<boolean>(false);
+const showSplitPopup = ref<boolean>(false);
+const splitAction = ref<TransactionSplitAction>(TransactionSplitAction.SplitByCategories);
 const showSourceAmountSheet = ref<boolean>(false);
 const showDestinationAmountSheet = ref<boolean>(false);
 const showCategorySheet = ref<boolean>(false);
@@ -693,6 +704,7 @@ const showTransactionPictures = ref<boolean>(pageTypeAndMode?.type === Transacti
     && settingsStore.appSettings.alwaysShowTransactionPicturesInMobileTransactionEditPage);
 const showAITextRecognitionSheet = ref<boolean>(false);
 
+const splitActions = computed<TransactionSplitActionInfo[]>(() => transaction.value instanceof Transaction ? getAvailableTransactionSplitActions(transaction.value) : []);
 const quickSaveButtonStyleType = computed<number>(() => settingsStore.appSettings.quickSaveButtonStyleInMobileTransactionListPage);
 const quickSaveButtonFloatingPosition = computed<string>(() => {
     switch (settingsStore.appSettings.quickSaveButtonStyleInMobileTransactionListPage) {
@@ -1424,6 +1436,17 @@ function viewOrRemovePicture(pictureInfo: TransactionPictureInfoBasicResponse): 
             submitting.value = false;
         });
     });
+}
+
+function openSplitPopup(action: TransactionSplitAction): void {
+    splitAction.value = action;
+    showMoreActionSheet.value = false;
+    showSplitPopup.value = true;
+}
+
+function onSplitDone(message: string): void {
+    showToast(message);
+    props.f7router.back();
 }
 
 function duplicate(withTime?: boolean, withGeoLocation?: boolean): void {
